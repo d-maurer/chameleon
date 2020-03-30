@@ -426,6 +426,15 @@ class Scope(dict):
     set_local = dict.__setitem__
 
     def __getitem__(self, key):
+        value = self.get(key, marker)
+        if value is marker:
+            raise KeyError(key)
+        return value
+
+    def __contains__(self, key):
+        return self.get(key, marker) is not marker
+
+    def get(self, key, default=None):
         value = dict.get(self, key, marker)
         if value is not marker:
             return value
@@ -437,7 +446,16 @@ class Scope(dict):
             if value is not marker:
                 return value
 
-        raise NameError(key)
+        return default
+
+    def items(self):
+        raise NotImplementedError()
+
+    def keys(self):
+        raise NotImplementedError()
+
+    def values(self):
+        raise NotImplementedError()
 
     @property
     def vars(self):
@@ -452,6 +470,12 @@ class Scope(dict):
     def set_global(self, name, value):
         root = getattr(self, "_root", self)
         root[name] = value
+
+    def get_name(self, key):
+        value = self.get(key, marker)
+        if value is marker:
+            raise NameError(key)
+        return value
 
     setLocal = set_local
     setGlobal = set_global

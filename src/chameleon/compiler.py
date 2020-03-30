@@ -95,7 +95,7 @@ def mangle(string):
 
 
 def load_econtext(name):
-    return template("getitem(KEY)", KEY=ast.Str(s=name), mode="eval")
+    return template("getname(KEY)", KEY=ast.Str(s=name), mode="eval")
 
 
 def store_econtext(name):
@@ -598,9 +598,15 @@ class ExpressionEvaluator(object):
     >>> parser = tales.ExpressionParser({'python': tales.PythonExpr}, 'python')
     >>> engine = functools.partial(ExpressionEngine, parser)
 
-    >>> evaluate = ExpressionEvaluator(engine, {
+    >>> evaluator = ExpressionEvaluator(engine, {
     ...     'foo': 'bar',
-    ...     })
+    ... })
+
+    We'll use the following convenience function to test the expression
+    evaluator.
+    >>> from chameleon.utils import Scope
+    >>> def evaluate(d, *args):
+    ...     return evaluator(Scope(d), *args)
 
     The evaluation function is passed the local and remote context,
     the expression type and finally the expression.
@@ -672,7 +678,7 @@ class NameTransform(object):
     Any odd name:
 
     >>> test(load('frobnitz'))
-    "getitem('frobnitz')"
+    "getname('frobnitz')"
 
     A 'builtin' name will first be looked up via ``get`` allowing fall
     back to the global builtin value:
@@ -894,12 +900,6 @@ class Compiler(object):
     template program.
     """
 
-    exceptions = NameError, \
-                 ValueError, \
-                 AttributeError, \
-                 LookupError, \
-                 TypeError
-
     defaults = {
         'translate': Symbol(simple_translate),
         'decode': Builtin("str"),
@@ -1049,7 +1049,7 @@ class Compiler(object):
         return functions
 
     def visit_Context(self, node):
-        return template("getitem = econtext.__getitem__") + \
+        return template("getname = econtext.get_name") + \
                template("get = econtext.get") + \
                self.visit(node.node)
 
@@ -1575,9 +1575,7 @@ class Compiler(object):
 
             self._current_slot.append(slot.name)
 
-            body = template("getitem = econtext.__getitem__") + \
-                   template("get = econtext.get") + \
-                   self.visit(slot.node)
+            body = self.visit_Context(slot)
 
             assert self._current_slot.pop() == slot.name
 
@@ -1608,7 +1606,7 @@ class Compiler(object):
                 append = template("_slots.appendleft(NAME)", NAME=fun)
 
                 assignment = [ast.TryExcept(
-                    body=template("_slots = getitem(KEY)", KEY=key),
+                    body=template("_slots = getname(KEY)", KEY=key),
                     handlers=[ast.ExceptHandler(body=assignment)],
                     orelse=append,
                     )]
@@ -1683,7 +1681,7 @@ class Compiler(object):
             outer[:] = list(self._enter_assignment(names)) + outer
 
         outer += template(
-            "__iterator, INDEX = getitem('repeat')(key, __iterator)",
+            "__iterator, INDEX = getname('repeat')(key, __iterator)",
             key=key, INDEX=index
             )
 
